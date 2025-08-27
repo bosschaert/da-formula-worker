@@ -25,15 +25,16 @@ export default {
 		const filtered = parts.filter(n => n)
 		console.log('URL parts:', filtered);
 
-		if (parts.length < 3) {
-			return new Response('Invalid request', { status: 400 });
+		if (filtered.length < 4) {
+			return new Response('Invalid request, should be /org/site/branch?query={<json query>}', { status: 400 });
 		}
 
 		const org = filtered.shift();
 		const site = filtered.shift();
+		const branch = filtered.shift();
 		const path = filtered.join('/');
 
-		const reqUrl = `https://main--${site}--${org}.aem.page/${path}`;
+		const reqUrl = `https://${branch}--${site}--${org}.aem.page/${path}`;
 		console.log('Request URL:', reqUrl);
 
 		const doc = await fetch(reqUrl);
