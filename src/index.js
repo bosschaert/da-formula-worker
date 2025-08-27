@@ -40,7 +40,7 @@ export default {
 		const doc = await fetch(reqUrl);
 
 		let json = await doc.json();
-		console.log('Obtained: ', json);
+		// console.log('Obtained: ', json);
 		console.log('Query', url.searchParams);
 		const queryString = url.searchParams.get('query');
 		if (!queryString) {
