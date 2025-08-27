@@ -8,10 +8,14 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
-function sort(field, json) {
-	console.log('Sorting on', field);
+function sort(field, numSort, json) {
+	console.log('Sorting on', field, '- numsort', numSort);
 	const data = json.data;
-	data.sort((a, b) => a[field].localeCompare(b[field]));
+	if (numSort) {
+		data.sort((a, b) => Number(a[field]) - Number(b[field]));
+	} else {
+		data.sort((a, b) => a[field].localeCompare(b[field]));
+	}
 	return json;
 };
 
@@ -51,7 +55,8 @@ export default {
 		const query = JSON.parse(queryString);
 		const sortkey = query['sort'];
 		if (sortkey) {
-			json = sort(sortkey, json);
+			const numSort = query['num-sort'] === 'true';
+			json = sort(sortkey, numSort, json);
 		}
 
 		return new Response(JSON.stringify(json));
