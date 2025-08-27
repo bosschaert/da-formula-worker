@@ -8,8 +8,51 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+function sort(field, json) {
+	console.log('Sorting on', field);
+	const data = json.data;
+	data.sort((a, b) => a[field].localeCompare(b[field]));
+	return json;
+};
+
+
 export default {
 	async fetch(request, env, ctx) {
-		return new Response('Test response');
+		console.log('Request received', request.url);
+		const url = new URL(request.url);
+
+		const parts = url.pathname.split('/');
+		const filtered = parts.filter(n => n)
+		console.log('URL parts:', filtered);
+
+		if (parts.length < 3) {
+			return new Response('Invalid request', { status: 400 });
+		}
+
+		const org = filtered.shift();
+		const site = filtered.shift();
+		const path = filtered.join('/');
+
+		const reqUrl = `https://main--${site}--${org}.aem.page/${path}`;
+		console.log('Request URL:', reqUrl);
+
+		const doc = await fetch(reqUrl);
+
+		let json = await doc.json();
+		console.log('Obtained: ', json);
+		console.log('Query', url.searchParams);
+		const queryString = url.searchParams.get('query');
+		if (!queryString) {
+			return new Response(JSON.stringify(json));
+		}
+
+		console.log('Querystring', queryString);
+		const query = JSON.parse(queryString);
+		const sortkey = query['sort'];
+		if (sortkey) {
+			json = sort(sortkey, json);
+		}
+
+		return new Response(JSON.stringify(json));
 	},
 };
