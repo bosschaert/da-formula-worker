@@ -10,9 +10,8 @@
  * governing permissions and limitations under the License.
  */
 
-// import { describe, it, expect } from 'vitest';
 import assert from 'assert';
-import { sort } from '../src/index.js';
+import { dropObjects, sort } from '../src/index.js';
 
 describe('Sheets Worker', () => {
 	it('sorts json sheets', () => {
@@ -37,22 +36,70 @@ describe('Sheets Worker', () => {
 		assert.equal(sorted2.data[3].name, 'Barney');
 	});
 
-	// it('')
+	function getTestSheet() {
+		return {
+			"columns": [
+				"path",
+				"title",
+				"price",
+				"category"
+			],
+			"data": [
+				{
+					"title": "My Doc 2",
+					"category": "cat1",
+					"price": "",
+					"path": "/news/doc2"
+				},
+				{
+					"title": "Doc 4",
+					"category": "Food",
+					"price": "1",
+					"path": "/filtering/doc4"
+				},
+				{
+					"path": "/blah",
+					"title": "Pretty much an empty doc with some tags",
+					"price": "",
+					"category": "cat1"
+				},
+				{
+					"path": "/news/doc1",
+					"title": "This is the title",
+					"price": "",
+					"category": "cat1"
+				}
+			],
+			"offset": 0,
+			"limit": 4,
+			"total": 4,
+			":type": "sheet"
+		};
+	}
+
+	it('filters fields', () => {
+		let json = getTestSheet();
+		json = dropObjects(json, [{ category: "Food" }]);
+		assert.equal(json.data.length, 3);
+		assert.equal(json.offset, 0);
+		assert.equal(json.limit, 3);
+		assert.equal(json.total, 3);
+		assert.equal(json[':type'], 'sheet');
+	});
+
+	it('filters multi fields', () => {
+		let json = getTestSheet();
+		json = dropObjects(json, [{ category: "cat1", title: "My Doc 2" }, { price: "1"}]);
+		assert.equal(json.data.length, 2);
+		assert.equal(json.offset, 0);
+		assert.equal(json.limit, 2);
+		assert.equal(json.total, 2);
+		assert.equal(json[':type'], 'sheet');
+
+		// check the paths
+		const paths = new Set();
+		json.data.forEach(row => paths.add(row.path));
+		assert(paths.has('/blah'));
+		assert(paths.has('/news/doc1'));
+	});
 });
-
-// describe('Hello World worker', () => {
-// 	it('responds with Hello World! (unit style)', async () => {
-// 		const request = new Request('http://example.com');
-// 		// Create an empty context to pass to `worker.fetch()`.
-// 		const ctx = createExecutionContext();
-// 		const response = await worker.fetch(request, env, ctx);
-// 		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
-// 		await waitOnExecutionContext(ctx);
-// 		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
-// 	});
-
-// 	it('responds with Hello World! (integration style)', async () => {
-// 		const response = await SELF.fetch('http://example.com');
-// 		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
-// 	});
-// });

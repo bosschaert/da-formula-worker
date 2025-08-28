@@ -22,46 +22,99 @@ export function sort(field, numSort, json) {
 	return json;
 };
 
+export function dropObjects(json, dropped) {
+	console.log('Dropping', dropped)
+	const data = json.data;
+	for (let i = data.length - 1; i >= 0; i--) {
+		const obj = data[i];
+
+		for (const fields of dropped) {
+			let match = true;
+			for (const key of Object.keys(fields)) {
+				const val = fields[key];
+				if (obj[key] !== val) {
+					match = false;
+				}
+			}
+			if (match) {
+				// All dropped fields match, remove the object
+				data.splice(i, 1);
+			}
+		}
+	}
+
+	json.limit = data.length;
+	json.total = data.length;
+
+	return json;
+}
+
+export function validateJson(json) {
+	if(json.offset != 0) {
+		const e = new Error('Only offset=0 is supported');
+		e.code = 412;
+		throw e;
+	}
+	if (json.limit != json.total) {
+		const e = new Error(`Pagination is not supported, limit=${json.limit}, total=${json.total}`);
+		e.code = 412;
+		throw e;
+	}
+}
 
 export default {
 	async fetch(request, env, ctx) {
-		console.log('Request received', request.url);
-		const url = new URL(request.url);
+		try {
+			console.log('Request received', request.url);
+			const url = new URL(request.url);
 
-		const parts = url.pathname.split('/');
-		const filtered = parts.filter(n => n)
-		console.log('URL parts:', filtered);
+			const parts = url.pathname.split('/');
+			const filtered = parts.filter(n => n)
+			console.log('URL parts:', filtered);
 
-		if (filtered.length < 4) {
-			return new Response('Invalid request, should be /org/site/branch?query={<json query>}', { status: 400 });
-		}
+			if (filtered.length < 4) {
+				return new Response('Invalid request, should be /org/site/branch?query={<json query>}', { status: 400 });
+			}
 
-		const org = filtered.shift();
-		const site = filtered.shift();
-		const branch = filtered.shift();
-		const path = filtered.join('/');
+			const org = filtered.shift();
+			const site = filtered.shift();
+			const branch = filtered.shift();
+			const path = filtered.join('/');
 
-		const reqUrl = `https://${branch}--${site}--${org}.aem.page/${path}`;
-		console.log('Request URL:', reqUrl);
+			const reqUrl = `https://${branch}--${site}--${org}.aem.page/${path}`;
+			console.log('Request URL:', reqUrl);
 
-		const doc = await fetch(reqUrl);
+			const doc = await fetch(reqUrl);
 
-		let json = await doc.json();
-		// console.log('Obtained: ', json);
-		console.log('Query', url.searchParams);
-		const queryString = url.searchParams.get('query');
-		if (!queryString) {
+			let json = await doc.json();
+			// console.log('Obtained: ', json);
+			console.log('Query', url.searchParams);
+			const queryString = url.searchParams.get('query');
+			if (!queryString) {
+				return new Response(JSON.stringify(json));
+			}
+
+			validateJson(json);
+
+			console.log('Querystring', queryString);
+			const query = JSON.parse(queryString);
+
+			const drop = query['drop'];
+			if (drop) {
+				json = dropObjects(json, drop);
+			}
+
+			const sortkey = query['sort'];
+			if (sortkey) {
+				const numSort = query['num-sort'] === 'true';
+				json = sort(sortkey, numSort, json);
+			}
+
 			return new Response(JSON.stringify(json));
+		} catch (e) {
+			const code = e.code || 500;
+			console.error('Error occurred:', e);
+			return new Response(JSON.stringify({ error: e.message }), { status: e.code || 500 });
 		}
-
-		console.log('Querystring', queryString);
-		const query = JSON.parse(queryString);
-		const sortkey = query['sort'];
-		if (sortkey) {
-			const numSort = query['num-sort'] === 'true';
-			json = sort(sortkey, numSort, json);
-		}
-
-		return new Response(JSON.stringify(json));
 	},
 };
