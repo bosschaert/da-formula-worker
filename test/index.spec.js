@@ -11,7 +11,7 @@
  */
 
 import assert from 'assert';
-import { dropObjects, sort } from '../src/index.js';
+import { dropObjects, keepObjects, sort } from '../src/index.js';
 
 describe('Sheets Worker', () => {
 	it('sorts json sheets', () => {
@@ -77,7 +77,54 @@ describe('Sheets Worker', () => {
 		};
 	}
 
-	it('filters fields', () => {
+	it('keep objects', () => {
+		let json = getTestSheet();
+		json = keepObjects(json, [{ category: "cat1" }]);
+		assert.equal(json.data.length, 3);
+		assert.equal(json.offset, 0);
+		assert.equal(json.limit, 3);
+		assert.equal(json.total, 3);
+		assert.equal(json[':type'], 'sheet');
+
+		// check the paths
+		const paths = new Set();
+		json.data.forEach(row => paths.add(row.path));
+		assert(paths.has('/blah'));
+		assert(paths.has('/news/doc1'));
+		assert(paths.has('/news/doc2'));
+
+		// Check all properties of one object
+		json.data.forEach(r => {
+			if (r.path === '/news/doc2') {
+				assert.equal(r.title, 'My Doc 2');
+				assert.equal(r.category, 'cat1');
+				assert.equal(r.price, '');
+			}
+		});
+	});
+
+	it('keep object multi fields', () => {
+		let json = getTestSheet();
+		json = keepObjects(json, [{ category: "cat1", path: "/blah" }, { category: "Food"}]);
+		assert.equal(json.data.length, 2);
+		assert.equal(json.offset, 0);
+		assert.equal(json.limit, 2);
+		assert.equal(json.total, 2);
+
+		const foodIdx = json.data.findIndex(r => r.category === 'Food');
+		json.data[foodIdx].title = 'Doc 4';
+		json.data[foodIdx].path = '/filtering/doc4';
+		json.data[foodIdx].price = '1';
+		json.data[foodIdx].category = 'Food';
+
+		const blahIdx = json.data.findIndex(r => r.path === '/blah');
+		assert(blahIdx, 1 - foodIdx);
+		json.data[blahIdx].title = 'Pretty much an empty doc with some tags';
+		json.data[blahIdx].price = '';
+		json.data[blahIdx].category = 'cat1';
+	});
+
+	it('drops objects', () => {
 		let json = getTestSheet();
 		json = dropObjects(json, [{ category: "Food" }]);
 		assert.equal(json.data.length, 3);
@@ -87,7 +134,7 @@ describe('Sheets Worker', () => {
 		assert.equal(json[':type'], 'sheet');
 	});
 
-	it('filters multi fields', () => {
+	it('drops objects multi fields', () => {
 		let json = getTestSheet();
 		json = dropObjects(json, [{ category: "cat1", title: "My Doc 2" }, { price: "1"}]);
 		assert.equal(json.data.length, 2);

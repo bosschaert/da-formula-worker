@@ -22,13 +22,13 @@ export function sort(field, numSort, json) {
 	return json;
 };
 
-export function dropObjects(json, dropped) {
-	console.log('Dropping', dropped)
+export function dropObjects(json, dropSpec) {
+	console.log('Dropping', dropSpec)
 	const data = json.data;
 	for (let i = data.length - 1; i >= 0; i--) {
 		const obj = data[i];
 
-		for (const fields of dropped) {
+		for (const fields of dropSpec) {
 			let match = true;
 			for (const key of Object.keys(fields)) {
 				const val = fields[key];
@@ -40,6 +40,36 @@ export function dropObjects(json, dropped) {
 				// All dropped fields match, remove the object
 				data.splice(i, 1);
 			}
+		}
+	}
+
+	json.limit = data.length;
+	json.total = data.length;
+
+	return json;
+}
+
+export function keepObjects(json, keepSpec) {
+	console.log('Keeping', keepSpec)
+	const data = json.data;
+	for (let i = data.length - 1; i >= 0; i--) {
+		const obj = data[i];
+
+		let toKeep = false;
+		for (const fields of keepSpec) {
+			let match = true;
+			for (const key of Object.keys(fields)) {
+				const val = fields[key];
+				if (obj[key] !== val) {
+					match = false;
+				}
+			}
+			if (match) {
+				toKeep = true;
+			}
+		}
+		if (!toKeep) {
+			data.splice(i, 1);
 		}
 	}
 
@@ -87,7 +117,6 @@ export default {
 			const doc = await fetch(reqUrl);
 
 			let json = await doc.json();
-			// console.log('Obtained: ', json);
 			console.log('Query', url.searchParams);
 			const queryString = url.searchParams.get('query');
 			if (!queryString) {
@@ -98,6 +127,11 @@ export default {
 
 			console.log('Querystring', queryString);
 			const query = JSON.parse(queryString);
+
+			const keep = query['keep'];
+			if (keep) {
+				json = keepObjects(json, keep);
+			}
 
 			const drop = query['drop'];
 			if (drop) {
