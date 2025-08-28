@@ -21,7 +21,7 @@ So if given the following example parameters:
 The basic access to the worker via curl is this:
 
 ```
-curl https://workers-host/test-org/da-aem-boilerplate/main/en/query-index.json
+curl https://worker-host/test-org/da-aem-boilerplate/main/en/query-index.json
 ```
 
 Without any query, the worker will just return the original sheet unmodified.
@@ -34,7 +34,12 @@ with name `query` and the value is a JSON string.
 For example to sort the query-index.json by path, the query parameter `{"sort":"path"}` is used.
 
 ```
-curl https://workers-host/org/repo/main/query-index.json?query=%7B"sort":"path"%7D'
+curl https://worker-host/org/repo/main/query-index.json?query=%7B"sort":"path"%7D'
+
+or
+
+curl --get https://worker-host/org/repo/main/query-index.json --data-urlencode 'query={"sort":"path"}'
+
 ```
 Note that the `{` and `}` as well as `[` and `]` characters need to be encoded on the URL.
 
@@ -91,7 +96,6 @@ For example, to sort on path and filter out no-index entries, use the following 
 
 With URL encoding the URL including query becomes:
 
-worker-host/org/repo/branch
 ```
-curl 'http://worker-host/org/repo/branch/query-index.json?query=%7B"sort":"path","drop":%5B%7B"robots":"noindex"%7D%5D%7D'
+curl --get https://worker-host/org/repo/main/query-index.json --data-urlencode 'query={"sort":"path","drop":[{"robots":"noindex"}]}'
 ```
