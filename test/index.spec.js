@@ -11,7 +11,8 @@
  */
 
 import assert from 'assert';
-import { dropObjects, getHeaders, keepObjects, sort } from '../src/index.js';
+import { dropObjects, getHeaders, keepObjects, sort, validateJson } from '../src/index.js';
+import worker from '../src/index.js';
 
 describe('Sheets Worker', () => {
 	it('sorts json sheets', () => {
@@ -166,4 +167,57 @@ describe('Sheets Worker', () => {
 		assert(headers.get('Strict-Transport-Security') === null);
 		assert(headers.get('Foobar') === null);
 	})
+
+	it('validates', () => {
+		const json1 = {
+			offset: 0,
+			limit: 42,
+			total: 42,
+		}
+		validateJson(json1);
+
+		const json2 = {
+			offset: 5,
+			limit: 42,
+			total: 42,
+		}
+		assert.throws(() => validateJson(json2));
+
+		const json3 = {
+			offset: 0,
+			limit: 42,
+			total: 99,
+		}
+		assert.throws(() => validateJson(json3));
+	});
+
+	it('fetch operation', async () => {
+		const mockFetch = (url) => {
+			if (url === 'https://branch--proj--org.aem.page/path/idx.json') {
+				return new Response(JSON.stringify(getTestSheet()));
+			}
+		};
+		const savedFetch = globalThis.fetch;
+
+		try {
+			globalThis.fetch = mockFetch;
+
+			const url = encodeURI('https://example.com/org/proj/branch/path/idx.json?query={"sort":"path","keep":[{"category":"cat1"}],"drop":[{"path":"/blah"}]}');
+			const req = new Request(url);
+			const response = await worker.fetch(req);
+			assert.equal(response.status, 200);
+			const json = await response.json();
+			assert.equal(json.data.length, 2);
+			assert.equal(json.offset, 0);
+			assert.equal(json.limit, 2);
+			assert.equal(json.total, 2);
+			assert.equal(json[':type'], 'sheet');
+
+			assert.equal(json.data[0].path, '/news/doc1');
+			assert.equal(json.data[1].path, '/news/doc2');
+
+		} finally {
+			globalThis.fetch = savedFetch;
+		}
+	});
 });
