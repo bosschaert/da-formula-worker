@@ -15,28 +15,6 @@ import { dropObjects, getHeaders, keepObjects, sort, validateJson } from '../src
 import worker from '../src/index.js';
 
 describe('Sheets Worker', () => {
-	it('sorts json sheets', () => {
-		const json = {
-			"data": [
-				{ "name": "Fred", "age": "010" },
-				{ "name": "Wilma", "age": "8" },
-				{ "name": "Barney", "age": "30" },
-				{ "name": "Betty", "age": "28" }
-			]
-		};
-		const sorted = sort('name', false, json);
-		assert.equal(sorted.data[0].name, 'Barney');
-		assert.equal(sorted.data[1].name, 'Betty');
-		assert.equal(sorted.data[2].name, 'Fred');
-		assert.equal(sorted.data[3].name, 'Wilma');
-
-		const sorted2 = sort('age', true, json);
-		assert.equal(sorted2.data[0].name, 'Wilma');
-		assert.equal(sorted2.data[1].name, 'Fred');
-		assert.equal(sorted2.data[2].name, 'Betty');
-		assert.equal(sorted2.data[3].name, 'Barney');
-	});
-
 	function getTestSheet() {
 		return {
 			"columns": [
@@ -77,6 +55,39 @@ describe('Sheets Worker', () => {
 			":type": "sheet"
 		};
 	}
+
+	function getTestSheet2() {
+		return {
+			"data": [
+				{ "name": "Fred", "age": "010" },
+				{ "name": "Wilma", "age": "8" },
+				{ "name": "Barney", "age": "30" },
+				{ "name": "Dory", "age": "100" },
+				{ "name": "Betty", "age": "28" },
+			],
+			"offset": 0,
+			"limit": 5,
+			"total": 5,
+			":type": "sheet"
+		};
+	}
+
+	it('sorts json sheets', () => {
+		const json = getTestSheet2();
+		const sorted = sort('name', false, json);
+		assert.equal(sorted.data[0].name, 'Barney');
+		assert.equal(sorted.data[1].name, 'Betty');
+		assert.equal(sorted.data[2].name, 'Dory');
+		assert.equal(sorted.data[3].name, 'Fred');
+		assert.equal(sorted.data[4].name, 'Wilma');
+
+		const sorted2 = sort('age', true, json);
+		assert.equal(sorted2.data[0].name, 'Wilma');
+		assert.equal(sorted2.data[1].name, 'Fred');
+		assert.equal(sorted2.data[2].name, 'Betty');
+		assert.equal(sorted2.data[3].name, 'Barney');
+		assert.equal(sorted2.data[4].name, 'Dory');
+	});
 
 	it('keep objects', () => {
 		let json = getTestSheet();
@@ -220,4 +231,63 @@ describe('Sheets Worker', () => {
 			globalThis.fetch = savedFetch;
 		}
 	});
+
+	it('fetch operation numeric sort', async () => {
+		const mockFetch = (url) => {
+			if (url === 'https://branch--proj--org.aem.page/abc.json') {
+				return new Response(JSON.stringify(getTestSheet2()));
+			}
+		};
+		const savedFetch = globalThis.fetch;
+
+		try {
+			globalThis.fetch = mockFetch;
+
+			const url = encodeURI('https://example.com/org/proj/branch/abc.json?query={"sort":"age","num-sort":"true"}');
+			const req = new Request(url);
+			const resp = await worker.fetch(req);
+			assert.equal(resp.status, 200);
+			const json = await resp.json();
+			assert.equal(json.data.length, 5);
+			assert.equal(json.offset, 0);
+			assert.equal(json.limit, 5);
+			assert.equal(json.total, 5);
+			assert.equal(json[':type'], 'sheet');
+
+			const ages = json.data.map((r) => r.age);
+			assert.deepStrictEqual(ages, ['8', '010', '28', '30', '100']);
+		} finally {
+			globalThis.fetch = savedFetch;
+		}
+	})
+
+	it('fetch operation string sort', async () => {
+		const mockFetch = (url) => {
+			if (url === 'https://branch--proj--org.aem.page/abc.json') {
+				return new Response(JSON.stringify(getTestSheet2()));
+			}
+		};
+		const savedFetch = globalThis.fetch;
+
+		try {
+			globalThis.fetch = mockFetch;
+
+			const url = encodeURI('https://example.com/org/proj/branch/abc.json?query={"sort":"age","num-sort":"false"}');
+			const req = new Request(url);
+			const resp = await worker.fetch(req);
+			assert.equal(resp.status, 200);
+			const json = await resp.json();
+			assert.equal(json.data.length, 5);
+			assert.equal(json.offset, 0);
+			assert.equal(json.limit, 5);
+			assert.equal(json.total, 5);
+			assert.equal(json[':type'], 'sheet');
+
+			const ages = json.data.map((r) => r.age);
+			assert.deepStrictEqual(ages, ['010', '100', '28', '30', '8']);
+		} finally {
+			globalThis.fetch = savedFetch;
+		}
+	})
 });
+
