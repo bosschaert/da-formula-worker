@@ -11,7 +11,7 @@
  */
 
 import assert from 'assert';
-import { dropObjects, keepObjects, sort } from '../src/index.js';
+import { dropObjects, getHeaders, keepObjects, sort } from '../src/index.js';
 
 describe('Sheets Worker', () => {
 	it('sorts json sheets', () => {
@@ -149,4 +149,21 @@ describe('Sheets Worker', () => {
 		assert(paths.has('/blah'));
 		assert(paths.has('/news/doc1'));
 	});
+
+	it('copies headers', () => {
+		const reqHeaders = new Headers();
+		reqHeaders.set('Content-Type', 'application/json');
+		reqHeaders.set('Access-Control-Allow-Origin', '*');
+		reqHeaders.set('Cache-Control', 'no-cache');
+		reqHeaders.set('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
+		reqHeaders.set('Foobar', 'blahblahblah');
+
+		const headers = getHeaders(reqHeaders);
+		assert.equal(headers.get('Content-Type'), 'application/json');
+		assert.equal(headers.get('Access-Control-Allow-Origin'), '*');
+		assert.equal(headers.get('Cache-Control'), 'no-cache');
+		assert.equal(headers.get('Last-Modified'), 'Wed, 21 Oct 2015 07:28:00 GMT');
+		assert(headers.get('Strict-Transport-Security') === null);
+		assert(headers.get('Foobar') === null);
+	})
 });

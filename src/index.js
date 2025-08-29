@@ -92,6 +92,24 @@ export function validateJson(json) {
 	}
 }
 
+function copyHeader(name, inh, out) {
+	const v = inh.get(name);
+	if (v) {
+		out.set(name, v);
+	}
+}
+
+export function getHeaders(inhdr) {
+	console.log(inhdr);
+	const headers = new Headers();
+	copyHeader('Content-Type', inhdr, headers);
+	copyHeader('Access-Control-Allow-Origin', inhdr, headers);
+	copyHeader('Cache-Control', inhdr, headers);
+	copyHeader('Last-Modified', inhdr, headers);
+	copyHeader('Strict-Transport-Security', inhdr, headers);
+	return headers;
+}
+
 export default {
 	async fetch(request, env, ctx) {
 		try {
@@ -144,7 +162,9 @@ export default {
 				json = sort(sortkey, numSort, json);
 			}
 
-			return new Response(JSON.stringify(json));
+			const headers = getHeaders(doc.headers);
+
+			return new Response(JSON.stringify(json), { headers });
 		} catch (e) {
 			const code = e.code || 500;
 			console.error('Error occurred:', e);
